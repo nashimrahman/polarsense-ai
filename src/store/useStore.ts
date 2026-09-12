@@ -4,6 +4,8 @@ import { generateInitialFleet } from '@/data/mockData'
 import { telemetryService } from '@/services/telemetryService'
 import { alertService } from '@/services/alertService'
 import { predictionService } from '@/services/predictionService'
+import { liveTelemetryService } from '@/services/liveTelemetryService'
+
 
 interface StoreState {
   buoys: Buoy[]
@@ -59,6 +61,17 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }
     })
+
+liveTelemetryService.init()
+liveTelemetryService.subscribe((patch) => {
+  set((s) => ({
+    buoys: s.buoys.map((b) =>
+      b.id === patch.id
+        ? { ...b, ...patch, telemetry: { ...b.telemetry, ...(patch.telemetry ?? {}) } }
+        : b
+    ),
+  }))
+})
 
     alertService.subscribe((alerts) => set({ alerts }))
   },

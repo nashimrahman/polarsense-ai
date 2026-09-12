@@ -18,9 +18,6 @@ hackathon-grade climate intelligence dashboard.
 
 ```bash
 npm install
-cp .env.example .env
-# add a free Mapbox public token to .env as VITE_MAPBOX_TOKEN
-npm run dev
 ```
 
 Without a Mapbox token, the Map View falls back to a stylized polar
@@ -46,7 +43,7 @@ out of the box.
 
 ## Pages
 
-| Route         | Description                                   |
+| Route         | Description                                    |
 |---------------|------------------------------------------------|
 | `/`           | Landing page                                   |
 | `/dashboard`  | Executive overview cards + fleet snapshot      |
