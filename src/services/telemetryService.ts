@@ -22,9 +22,14 @@ class TelemetryService {
     return this
   }
 
+  // ID of the real ESP32 buoy — mock tick must never touch it.
+  private readonly REAL_BUOY_ID = 'PS-01'
+
   private tick() {
     const now = Date.now()
     this.buoys = this.buoys.map((b) => {
+      // PS-01 is driven exclusively by live Socket.IO telemetry — skip it here.
+      if (b.id === this.REAL_BUOY_ID) return b
       if (b.status === 'offline') return b
 
       const t = b.telemetry

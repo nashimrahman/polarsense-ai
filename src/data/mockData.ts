@@ -54,10 +54,53 @@ function statusFor(rand: () => number): BuoyStatus {
   return 'online'
 }
 
+// PS-01 (index 0) is the only real buoy; it must start OFFLINE and be driven
+// exclusively by live ESP32 telemetry via Socket.IO. All other buoys are also
+// offline because they are not yet deployed.
+const REAL_BUOY_INDEX = 0 // PS-01 / POLAR-001
+
 export function generateInitialFleet(): Buoy[] {
   return BUOY_SEEDS.map((seed, i) => {
     const rand = seededRandom(i * 137 + 7)
-    const status = statusFor(rand)
+
+    // ── PS-01: the only real ESP32 buoy — always starts OFFLINE ─────────────
+    // Its telemetry is driven exclusively by live Socket.IO updates from the
+    // backend. We still need placeholder history arrays (empty) so the UI
+    // doesn't crash before the first real reading arrives.
+    if (i === REAL_BUOY_INDEX) {
+      return {
+        id: seed.id,
+        name: seed.name,
+        latitude: seed.lat,
+        longitude: seed.lon,
+        status: 'offline' as const,
+        region: seed.region,
+        deployedAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+        lastSync: 0,
+        signalStrength: 0,
+        storageUsage: 0,
+        telemetry: {
+          temperature: 0,
+          salinity: 0,
+          ph: 0,
+          oxygen: 0,
+          pressure: 0,
+          humidity: 0,
+          windSpeed: 0,
+          battery: 0,
+        },
+        history: {
+          temperature: [],
+          salinity: [],
+          windSpeed: [],
+          battery: [],
+          pressure: [],
+        },
+      }
+    }
+
+    // ── PS-02..PS-24: not yet deployed — always offline ──────────────────────
+    const status: BuoyStatus = 'offline'
     const baseTemp = -1.8 + (rand() - 0.5) * 1.5
     const baseBattery = 60 + rand() * 38
     const baseWind = 10 + rand() * 22
@@ -72,8 +115,8 @@ export function generateInitialFleet(): Buoy[] {
       status,
       region: seed.region,
       deployedAt: new Date(Date.now() - (200 + rand() * 500) * 24 * 60 * 60 * 1000).toISOString(),
-      lastSync: Date.now() - Math.floor(rand() * 120) * 1000,
-      signalStrength: status === 'offline' ? 0 : Math.round(40 + rand() * 60),
+      lastSync: 0,
+      signalStrength: 0,
       storageUsage: Math.round(20 + rand() * 70),
       telemetry: {
         temperature: Number(baseTemp.toFixed(1)),
@@ -86,11 +129,11 @@ export function generateInitialFleet(): Buoy[] {
         battery: Math.round(baseBattery),
       },
       history: {
-        temperature: buildHistory(rand, baseTemp, 0.4, 48, -3, 2),
-        salinity: buildHistory(rand, baseSalinity, 0.15, 48, 32, 36),
-        windSpeed: buildHistory(rand, baseWind, 3, 48, 0, 60),
-        battery: buildHistory(rand, baseBattery, 1.5, 48, 0, 100),
-        pressure: buildHistory(rand, basePressure, 2, 48, 970, 1040),
+        temperature: [],
+        salinity: [],
+        windSpeed: [],
+        battery: [],
+        pressure: [],
       },
     }
   })

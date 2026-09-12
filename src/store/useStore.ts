@@ -46,7 +46,20 @@ export const useStore = create<StoreState>((set, get) => ({
 
     telemetryService.subscribe((buoys) => {
       const insights = predictionService.infer(buoys)
-      set({ buoys, insights, initialized: true })
+
+      // telemetryService holds its own internal fleet array that is initialised
+      // once with zeroed/offline PS-01 data and is NEVER updated by real Socket.IO
+      // patches. Using it directly for PS-01 would overwrite real ESP32 readings
+      // every 3 s. Instead, keep whatever PS-01 state the store currently holds
+      // (as managed by liveTelemetryService) and let the mock tick handle every
+      // other buoy as before.
+      set((s) => ({
+        buoys: buoys.map((b) =>
+          b.id === 'PS-01' ? (s.buoys.find((x) => x.id === 'PS-01') ?? b) : b
+        ),
+        insights,
+        initialized: true,
+      }))
 
       const createdNew = alertService.evaluate(buoys)
       if (createdNew) {
