@@ -1,132 +1,71 @@
-import { Buoy, BuoyStatus, TelemetryPoint } from '@/types'
+import { Buoy } from '@/types'
 
-// Realistic-ish Southern Ocean / Antarctic perimeter coordinates
-const BUOY_SEEDS: { id: string; name: string; lat: number; lon: number; region: string }[] = [
-  { id: 'PS-01', name: 'Weddell Sentinel', lat: -65.2, lon: -45.8, region: 'Weddell Sea' },
-  { id: 'PS-02', name: 'Ross Ice Watch', lat: -76.5, lon: 168.3, region: 'Ross Sea' },
-  { id: 'PS-03', name: 'Drake Passage I', lat: -60.1, lon: -63.4, region: 'Drake Passage' },
-  { id: 'PS-04', name: 'Amundsen Drift', lat: -73.8, lon: -112.6, region: 'Amundsen Sea' },
-  { id: 'PS-05', name: 'Bellingshausen A', lat: -68.9, lon: -78.2, region: 'Bellingshausen Sea' },
-  { id: 'PS-06', name: 'South Orkney Buoy', lat: -60.6, lon: -45.5, region: 'Scotia Sea' },
-  { id: 'PS-07', name: 'Kerguelen Node', lat: -49.3, lon: 69.5, region: 'Kerguelen Plateau' },
-  { id: 'PS-08', name: 'Prydz Bay Watch', lat: -68.4, lon: 76.8, region: 'Prydz Bay' },
-  { id: 'PS-09', name: 'Davis Sea Relay', lat: -66.0, lon: 91.2, region: 'Davis Sea' },
-  { id: 'PS-10', name: 'Mawson Coastal', lat: -67.6, lon: 62.9, region: 'Mac. Robertson Land' },
-  { id: 'PS-11', name: 'South Sandwich N', lat: -57.8, lon: -26.4, region: 'South Sandwich' },
-  { id: 'PS-12', name: 'Cosmonaut Sea I', lat: -66.8, lon: 45.1, region: 'Cosmonaut Sea' },
-  { id: 'PS-13', name: 'Enderby Land Buoy', lat: -65.9, lon: 53.7, region: 'Enderby Land' },
-  { id: 'PS-14', name: 'Wilkes Land Node', lat: -64.7, lon: 112.4, region: 'Wilkes Land' },
-  { id: 'PS-15', name: 'Balleny Islands', lat: -66.9, lon: 163.2, region: 'Balleny Islands' },
-  { id: 'PS-16', name: 'Larsen Shelf I', lat: -66.3, lon: -60.9, region: 'Larsen Ice Shelf' },
-  { id: 'PS-17', name: 'Antarctic Peninsula S', lat: -63.4, lon: -57.1, region: 'Antarctic Peninsula' },
-  { id: 'PS-18', name: 'South Georgia Relay', lat: -54.4, lon: -36.6, region: 'South Georgia' },
-  { id: 'PS-19', name: 'Amery Basin Node', lat: -69.7, lon: 71.3, region: 'Amery Ice Shelf' },
-  { id: 'PS-20', name: 'Terra Nova Bay', lat: -74.9, lon: 164.1, region: 'Terra Nova Bay' },
-  { id: 'PS-21', name: 'Fimbul Shelf Buoy', lat: -70.2, lon: -1.2, region: 'Fimbul Ice Shelf' },
-  { id: 'PS-22', name: 'Riiser-Larsen Node', lat: -69.4, lon: 15.6, region: 'Riiser-Larsen Sea' },
-  { id: 'PS-23', name: 'Shackleton Coast', lat: -66.1, lon: 100.6, region: 'Shackleton Coast' },
-  { id: 'PS-24', name: 'Bouvet Fringe Relay', lat: -55.1, lon: 3.4, region: 'Bouvet Basin' },
+// Coordinates across polar regions
+const BUOY_SEEDS: { id: string; lat: number; lon: number; region: string }[] = [
+  { id: 'PS-01', lat: -65.2, lon: -45.8, region: 'North Pole' },
+  { id: 'PS-02', lat: -76.5, lon: 168.3, region: 'region' },
+  { id: 'PS-03', lat: -60.1, lon: -63.4, region: 'region' },
+  { id: 'PS-04', lat: -73.8, lon: -112.6, region: 'region' },
+  { id: 'PS-05', lat: -68.9, lon: -78.2, region: 'region' },
+  { id: 'PS-06', lat: -60.6, lon: -45.5, region: 'region' },
+  { id: 'PS-07', lat: -49.3, lon: 69.5, region: 'region' },
+  { id: 'PS-08', lat: -68.4, lon: 76.8, region: 'region' },
+  { id: 'PS-09', lat: -66.0, lon: 91.2, region: 'region' },
+  { id: 'PS-10', lat: -67.6, lon: 62.9, region: 'region' },
+  { id: 'PS-11', lat: -57.8, lon: -26.4, region: 'region' },
+  { id: 'PS-12', lat: -66.8, lon: 45.1, region: 'region' },
+  { id: 'PS-13', lat: -65.9, lon: 53.7, region: 'region' },
+  { id: 'PS-14', lat: -64.7, lon: 112.4, region: 'region' },
+  { id: 'PS-15', lat: -66.9, lon: 163.2, region: 'region' },
+  { id: 'PS-16', lat: -66.3, lon: -60.9, region: 'region' },
+  { id: 'PS-17', lat: -63.4, lon: -57.1, region: 'region' },
+  { id: 'PS-18', lat: -54.4, lon: -36.6, region: 'region' },
+  { id: 'PS-19', lat: -69.7, lon: 71.3, region: 'region' },
+  { id: 'PS-20', lat: -74.9, lon: 164.1, region: 'region' },
+  { id: 'PS-21', lat: -70.2, lon: -1.2, region: 'region' },
+  { id: 'PS-22', lat: -69.4, lon: 15.6, region: 'region' },
+  { id: 'PS-23', lat: -66.1, lon: 100.6, region: 'region' },
+  { id: 'PS-24', lat: -55.1, lon: 3.4, region: 'region' },
 ]
 
-function seededRandom(seed: number) {
-  let s = seed
-  return () => {
-    s = (s * 9301 + 49297) % 233280
-    return s / 233280
-  }
-}
-
-function buildHistory(rand: () => number, base: number, volatility: number, points: number, floor: number, ceil: number): TelemetryPoint[] {
-  const now = Date.now()
-  const arr: TelemetryPoint[] = []
-  let v = base
-  for (let i = points; i >= 0; i--) {
-    v = Math.max(floor, Math.min(ceil, v + (rand() - 0.5) * volatility))
-    arr.push({ timestamp: now - i * 60 * 60 * 1000, value: Number(v.toFixed(2)) })
-  }
-  return arr
-}
-
-function statusFor(rand: () => number): BuoyStatus {
-  const r = rand()
-  if (r > 0.95) return 'offline'
-  if (r > 0.85) return 'degraded'
-  return 'online'
-}
-
-// PS-01 (index 0) is the only real buoy; it must start OFFLINE and be driven
-// exclusively by live ESP32 telemetry via Socket.IO. All other buoys are also
-// offline because they are not yet deployed.
-const REAL_BUOY_INDEX = 0 // PS-01 / POLAR-001
-
 export function generateInitialFleet(): Buoy[] {
-  return BUOY_SEEDS.map((seed, i) => {
-    const rand = seededRandom(i * 137 + 7)
-
-    // ── PS-01: the only real ESP32 buoy — always starts OFFLINE ─────────────
-    // Its telemetry is driven exclusively by live Socket.IO updates from the
-    // backend. We still need placeholder history arrays (empty) so the UI
-    // doesn't crash before the first real reading arrives.
-    if (i === REAL_BUOY_INDEX) {
-      return {
-        id: seed.id,
-        name: seed.name,
-        latitude: seed.lat,
-        longitude: seed.lon,
-        status: 'offline' as const,
-        region: seed.region,
-        deployedAt: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
-        lastSync: 0,
-        signalStrength: 0,
-        storageUsage: 0,
-        telemetry: {
-          temperature: 0,
-          salinity: 0,
-          ph: 0,
-          oxygen: 0,
-          pressure: 0,
-          humidity: 0,
-          windSpeed: 0,
-          battery: 0,
-        },
-        history: {
-          temperature: [],
-          salinity: [],
-          windSpeed: [],
-          battery: [],
-          pressure: [],
-        },
-      }
-    }
-
-    // ── PS-02..PS-24: not yet deployed — always offline ──────────────────────
-    const status: BuoyStatus = 'offline'
-    const baseTemp = -1.8 + (rand() - 0.5) * 1.5
-    const baseBattery = 60 + rand() * 38
-    const baseWind = 10 + rand() * 22
-    const basePressure = 990 + rand() * 40
-    const baseSalinity = 33.5 + rand() * 2
+  return BUOY_SEEDS.map((seed) => {
+    const isRealBuoy = seed.id === 'PS-01'
 
     return {
       id: seed.id,
-      name: seed.name,
+      name: isRealBuoy ? 'PS-01' : 'Unnamed',
       latitude: seed.lat,
       longitude: seed.lon,
-      status,
+      status: 'offline' as const,
       region: seed.region,
-      deployedAt: new Date(Date.now() - (200 + rand() * 500) * 24 * 60 * 60 * 1000).toISOString(),
+      deployedAt: new Date(0).toISOString(),
       lastSync: 0,
       signalStrength: 0,
-      storageUsage: Math.round(20 + rand() * 70),
+      storageUsage: 0,
       telemetry: {
-        temperature: Number(baseTemp.toFixed(1)),
-        salinity: Number(baseSalinity.toFixed(1)),
-        ph: Number((7.9 + rand() * 0.4).toFixed(2)),
-        oxygen: Number((5.5 + rand() * 2).toFixed(1)),
-        pressure: Number(basePressure.toFixed(0)),
-        humidity: Math.round(60 + rand() * 30),
-        windSpeed: Number(baseWind.toFixed(1)),
-        battery: Math.round(baseBattery),
+        temperature: 0,
+        humidity: 0,
+        pressure: 0,
+        salinity: 0,
+        windSpeed: 0,
+        battery: 0,
+        airTemperature: 0,
+        accelX: 0,
+        accelY: 0,
+        accelZ: 0,
+        gyroX: 0,
+        gyroY: 0,
+        gyroZ: 0,
+        waveHeight: 0,
+        iceConcentration: 0,
+        currentSpeed: 0,
+        mode: 'OFFLINE',
+        sampling: 'OFFLINE',
+        energyMode: 'OFFLINE',
+        risk: 'NONE',
+        ph: 0,
+        oxygen: 0,
       },
       history: {
         temperature: [],

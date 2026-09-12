@@ -6,7 +6,6 @@ import { alertService } from '@/services/alertService'
 import { predictionService } from '@/services/predictionService'
 import { liveTelemetryService } from '@/services/liveTelemetryService'
 
-
 interface StoreState {
   buoys: Buoy[]
   alerts: AlertItem[]
@@ -46,20 +45,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
     telemetryService.subscribe((buoys) => {
       const insights = predictionService.infer(buoys)
-
-      // telemetryService holds its own internal fleet array that is initialised
-      // once with zeroed/offline PS-01 data and is NEVER updated by real Socket.IO
-      // patches. Using it directly for PS-01 would overwrite real ESP32 readings
-      // every 3 s. Instead, keep whatever PS-01 state the store currently holds
-      // (as managed by liveTelemetryService) and let the mock tick handle every
-      // other buoy as before.
-      set((s) => ({
-        buoys: buoys.map((b) =>
-          b.id === 'PS-01' ? (s.buoys.find((x) => x.id === 'PS-01') ?? b) : b
-        ),
+      set({
+        buoys,
         insights,
         initialized: true,
-      }))
+      })
 
       const createdNew = alertService.evaluate(buoys)
       if (createdNew) {
@@ -75,16 +65,38 @@ export const useStore = create<StoreState>((set, get) => ({
       }
     })
 
-liveTelemetryService.init()
-liveTelemetryService.subscribe((patch) => {
-  set((s) => ({
-    buoys: s.buoys.map((b) =>
-      b.id === patch.id
-        ? { ...b, ...patch, telemetry: { ...b.telemetry, ...(patch.telemetry ?? {}) } }
-        : b
-    ),
-  }))
-})
+    liveTelemetryService.init()
+    liveTelemetryService.subscribe((patch) => {
+      set((s) => {
+        const nextBuoys = s.buoys.map((b) =>
+          b.id === patch.id
+            ? {
+                ...b,
+                ...patch,
+                telemetry: patch.telemetry ? { ...patch.telemetry } : b.telemetry,
+                history: patch.history ? { ...patch.history } : b.history,
+              }
+            : b
+        )
+        const insights = predictionService.infer(nextBuoys)
+        const createdNew = alertService.evaluate(nextBuoys)
+        if (createdNew) {
+          const latest = alertService.getSnapshot()[0]
+          if (latest) {
+            get().pushToast({
+              variant: latest.severity === 'critical' || latest.severity === 'high' ? 'danger' : 'warning',
+              title: latest.title,
+              description: latest.buoyName,
+            })
+          }
+        }
+        return {
+          buoys: nextBuoys,
+          insights,
+          alerts: alertService.getSnapshot(),
+        }
+      })
+    })
 
     alertService.subscribe((alerts) => set({ alerts }))
   },

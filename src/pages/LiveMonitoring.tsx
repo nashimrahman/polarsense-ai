@@ -1,44 +1,62 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Thermometer,
   Droplets,
-  FlaskConical,
   Wind as WindIcon,
   Gauge as GaugeIcon,
   CloudDrizzle,
   BatteryMedium,
   Waves,
+  Compass,
+  Snowflake,
+  Cpu,
+  Activity,
   ArrowUp,
   ArrowDown,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 
 const METRICS = [
-  { key: 'temperature', label: 'Temperature', unit: '°C', icon: Thermometer, color: '#06B6D4' },
-  { key: 'salinity', label: 'Salinity', unit: ' PSU', icon: Droplets, color: '#3B82F6' },
-  { key: 'ph', label: 'pH Level', unit: '', icon: FlaskConical, color: '#22C55E' },
-  { key: 'oxygen', label: 'Dissolved Oxygen', unit: ' mg/L', icon: Waves, color: '#06B6D4' },
-  { key: 'pressure', label: 'Pressure', unit: ' hPa', icon: GaugeIcon, color: '#3B82F6' },
+  { key: 'temperature', label: 'Water Temp', unit: '°C', icon: Thermometer, color: '#06B6D4' },
+  { key: 'airTemperature', label: 'Air Temp', unit: '°C', icon: Thermometer, color: '#38BDF8' },
   { key: 'humidity', label: 'Humidity', unit: '%', icon: CloudDrizzle, color: '#9CA3AF' },
+  { key: 'pressure', label: 'Pressure', unit: ' hPa', icon: GaugeIcon, color: '#3B82F6' },
   { key: 'windSpeed', label: 'Wind Speed', unit: ' km/h', icon: WindIcon, color: '#F59E0B' },
+  { key: 'waveHeight', label: 'Wave Height', unit: ' m', icon: Waves, color: '#06B6D4' },
+  { key: 'salinity', label: 'Salinity', unit: ' PSU', icon: Droplets, color: '#3B82F6' },
+  { key: 'iceConcentration', label: 'Ice Concentration', unit: '%', icon: Snowflake, color: '#A5B4FC' },
+  { key: 'currentSpeed', label: 'Current Speed', unit: ' m/s', icon: Compass, color: '#38BDF8' },
   { key: 'battery', label: 'Battery', unit: '%', icon: BatteryMedium, color: '#22C55E' },
 ] as const
 
 export default function LiveMonitoring() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const buoys = useStore((s) => s.buoys)
   const initialized = useStore((s) => s.initialized)
-  const [selected, setSelected] = useState<string | null>(null)
+  const selectedBuoyId = useStore((s) => s.selectedBuoyId)
+  const selectBuoy = useStore((s) => s.selectBuoy)
 
-  const active = useMemo(() => buoys.find((b) => b.id === selected) ?? buoys.find((b) => b.status === 'online') ?? buoys[0], [buoys, selected])
+  const selected = searchParams.get('buoy') || selectedBuoyId
+
+  const setSelected = (id: string) => {
+    selectBuoy(id)
+    setSearchParams({ buoy: id }, { replace: true })
+  }
+
+  const active = useMemo(
+    () => buoys.find((b) => b.id === selected) ?? buoys.find((b) => b.status === 'online') ?? buoys[0],
+    [buoys, selected]
+  )
 
   if (!initialized || !active) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, i) => (
           <Skeleton key={i} className="h-40" />
         ))}
       </div>
@@ -59,7 +77,7 @@ export default function LiveMonitoring() {
                 : 'border-base-border text-text-secondary hover:bg-white/5'
             )}
           >
-            {b.id}
+            {b.name}
           </button>
         ))}
       </div>
@@ -67,13 +85,14 @@ export default function LiveMonitoring() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-base font-semibold text-text-primary">{active.name}</h2>
-          <p className="text-xs text-text-secondary">{active.region} · updating every 3s</p>
+          <p className="text-xs text-text-secondary">{active.region} · {active.status === 'online' ? 'Live stream' : 'Offline'}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {METRICS.map((m) => {
-          const value = active.telemetry[m.key as keyof typeof active.telemetry]
+          const rawValue = active.telemetry[m.key as keyof typeof active.telemetry]
+          const value = typeof rawValue === 'number' ? rawValue : 0
           const history = m.key in active.history ? active.history[m.key as keyof typeof active.history] : undefined
           const prev = history && history.length > 1 ? history[history.length - 2].value : value
           const up = value >= prev
@@ -90,7 +109,7 @@ export default function LiveMonitoring() {
                 </span>
               </div>
               <p className="mt-3 text-xl font-semibold tabular text-text-primary">
-                {value.toFixed(m.key === 'ph' ? 2 : 1)}
+                {value.toFixed(1)}
                 {m.unit}
               </p>
               <p className="text-xs text-text-secondary">{m.label}</p>
@@ -102,6 +121,60 @@ export default function LiveMonitoring() {
             </Card>
           )
         })}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            <Cpu size={14} className="text-accent-cyan" /> Autonomous System Status
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Mode</span>
+              <span className="font-semibold text-text-primary text-sm">{active.telemetry.mode || 'NORMAL'}</span>
+            </div>
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Sampling</span>
+              <span className="font-semibold text-text-primary text-sm">{active.telemetry.sampling || 'NORMAL'}</span>
+            </div>
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Energy Mode</span>
+              <span className="font-semibold text-text-primary text-sm">{active.telemetry.energyMode || 'POWER_SAVING'}</span>
+            </div>
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Risk</span>
+              <span className="font-semibold text-status-success text-sm">{active.telemetry.risk || 'LOW'}</span>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            <Activity size={14} className="text-accent-blue" /> IMU & Position Telemetry
+          </div>
+          <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-3">
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Acceleration (g)</span>
+              <span className="font-mono text-xs text-text-primary">
+                X:{(active.telemetry.accelX ?? 0).toFixed(2)} Y:{(active.telemetry.accelY ?? 0).toFixed(2)} Z:{(active.telemetry.accelZ ?? 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">Gyroscope (dps)</span>
+              <span className="font-mono text-xs text-text-primary">
+                X:{(active.telemetry.gyroX ?? 0).toFixed(2)} Y:{(active.telemetry.gyroY ?? 0).toFixed(2)} Z:{(active.telemetry.gyroZ ?? 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="rounded-lg bg-white/[0.02] border border-base-border p-3">
+              <span className="text-text-secondary block mb-1">GPS Position</span>
+              <span className="font-mono text-xs text-text-primary">
+                {typeof active.latitude === 'number' && typeof active.longitude === 'number'
+                  ? `${active.latitude.toFixed(4)}°, ${active.longitude.toFixed(4)}°`
+                  : 'Searching...'}
+              </span>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   )

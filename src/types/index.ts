@@ -6,14 +6,35 @@ export interface TelemetryPoint {
 }
 
 export interface BuoyTelemetry {
-  temperature: number
-  salinity: number
-  ph: number
-  oxygen: number
-  pressure: number
-  humidity: number
-  windSpeed: number
-  battery: number
+  // Real Sensor Data
+  temperature: number          // Water temperature (°C)
+  humidity: number             // Humidity (%)
+  pressure: number             // Pressure (hPa)
+  salinity: number             // Salinity (PSU)
+  windSpeed: number            // Wind speed (km/h)
+  battery: number              // Battery (%)
+
+  // Extended Sensor & Environment Fields (optional for flexible initialization)
+  airTemperature?: number       // Air temperature (°C)
+  accelX?: number               // Acceleration X (g)
+  accelY?: number               // Acceleration Y (g)
+  accelZ?: number               // Acceleration Z (g)
+  gyroX?: number                // Gyroscope X (dps)
+  gyroY?: number                // Gyroscope Y (dps)
+  gyroZ?: number                // Gyroscope Z (dps)
+  waveHeight?: number           // Wave height (m)
+  iceConcentration?: number     // Ice concentration (%)
+  currentSpeed?: number         // Current speed (m/s)
+
+  // Autonomous System
+  mode?: string                 // Operation mode
+  sampling?: string             // Sampling rate / state
+  energyMode?: string           // Energy mode
+  risk?: string                 // Risk assessment
+
+  // Compatibility fields
+  ph?: number
+  oxygen?: number
 }
 
 export interface Buoy {

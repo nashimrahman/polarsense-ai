@@ -3,7 +3,7 @@ import { Buoy, TelemetryPoint } from '@/types'
 
 type Listener = (partial: Partial<Buoy> & { id: string }) => void
 
-const API_URL = import.meta.env.VITE_API_URL as string | undefined
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:4000'
 
 /** The frontend buoy ID that corresponds to the real ESP32 device. */
 const LIVE_BUOY_ID = 'PS-01'
@@ -13,16 +13,15 @@ const DEVICE_BUOY_ID = 'POLAR-001'
 
 /**
  * How long (ms) to wait after the last telemetry update before declaring
- * PS-01 offline. Set to 0 to disable the staleness check.
- * ⚠️ This is a hackathon/prototype timeout — tune for your ESP32 publish rate.
+ * PS-01 offline.
  */
-export const TELEMETRY_TIMEOUT_MS = 15_000
+export const TELEMETRY_TIMEOUT_MS = 10_000
 
 /** Rolling history window length (number of points kept per metric). */
 const HISTORY_MAX_POINTS = 48
 
-// In-memory sparkline history for PS-01 (accumulates while the page is open).
-const history: Buoy['history'] = {
+// In-memory sparkline history for PS-01 (accumulates while the page is open and simulation is online).
+let history: Buoy['history'] = {
   temperature: [],
   salinity: [],
   windSpeed: [],
@@ -37,33 +36,77 @@ function pushPoint(arr: TelemetryPoint[], value: number | undefined): TelemetryP
 }
 
 function mapRowToBuoyPatch(row: Record<string, unknown>): Partial<Buoy> & { id: string } {
-  const windSpeedKmh =
-    typeof row.wind_speed_ms === 'number' ? row.wind_speed_ms * 3.6 : undefined
+  const windSpeedMs = typeof row.wind_speed_ms === 'number' ? row.wind_speed_ms : 0
+  const windSpeedKmh = windSpeedMs * 3.6
+
+  const temp = typeof row.temperature_c === 'number' ? row.temperature_c : 0
+  const airTemp = typeof row.air_temperature_c === 'number' ? row.air_temperature_c : 0
+  const hum = typeof row.humidity_percent === 'number' ? row.humidity_percent : 0
+  const press = typeof row.pressure_hpa === 'number' ? row.pressure_hpa : 0
+  const sal = typeof row.salinity_psu === 'number' ? row.salinity_psu : 0
+  const waveHeight = typeof row.wave_height_m === 'number' ? row.wave_height_m : 0
+  const iceConc =
+    typeof row.ice_concentration_percent === 'number'
+      ? row.ice_concentration_percent
+      : typeof row.ice_concentration_pct === 'number'
+        ? row.ice_concentration_pct
+        : 0
+  const currentSpeed = typeof row.current_speed_ms === 'number' ? row.current_speed_ms : 0
+  const batt = typeof row.battery_percent === 'number' ? row.battery_percent : 0
+
+  const extra = (row.extra && typeof row.extra === 'object' ? row.extra : {}) as Record<string, any>
+
+  const accelX = typeof row.accel_x_g === 'number' ? row.accel_x_g : (extra.accel_x_g ?? extra.accel?.x ?? 0)
+  const accelY = typeof row.accel_y_g === 'number' ? row.accel_y_g : (extra.accel_y_g ?? extra.accel?.y ?? 0)
+  const accelZ = typeof row.accel_z_g === 'number' ? row.accel_z_g : (extra.accel_z_g ?? extra.accel?.z ?? 0)
+
+  const gyroX = typeof row.gyro_x_dps === 'number' ? row.gyro_x_dps : (extra.gyro_x_dps ?? extra.gyro?.x ?? 0)
+  const gyroY = typeof row.gyro_y_dps === 'number' ? row.gyro_y_dps : (extra.gyro_y_dps ?? extra.gyro?.y ?? 0)
+  const gyroZ = typeof row.gyro_z_dps === 'number' ? row.gyro_z_dps : (extra.gyro_z_dps ?? extra.gyro?.z ?? 0)
+
+  const mode = (row.mode as string) || extra.mode || 'NORMAL'
+  const sampling = (row.sampling as string) || extra.sampling || 'NORMAL'
+  const energyMode = (row.energy_mode as string) || extra.energy_mode || 'POWER_SAVING'
+  const risk = (row.risk as string) || extra.risk || 'LOW'
 
   // Append real readings to in-memory sparkline history.
-  history.temperature = pushPoint(history.temperature, row.temperature_c as number)
-  history.salinity    = pushPoint(history.salinity,    row.salinity_psu as number)
+  history.temperature = pushPoint(history.temperature, temp)
+  history.salinity    = pushPoint(history.salinity,    sal)
   history.windSpeed   = pushPoint(history.windSpeed,   windSpeedKmh)
-  history.battery     = pushPoint(history.battery,     row.battery_percent as number)
-  history.pressure    = pushPoint(history.pressure,    row.pressure_hpa as number)
+  history.battery     = pushPoint(history.battery,     batt)
+  history.pressure    = pushPoint(history.pressure,    press)
 
   return {
     id: LIVE_BUOY_ID,
-    // ✅ Mark PS-01 online the moment real telemetry arrives.
     status: 'online',
     latitude:  typeof row.latitude  === 'number' ? row.latitude  : undefined,
     longitude: typeof row.longitude === 'number' ? row.longitude : undefined,
     lastSync:  row.created_at ? new Date(row.created_at as string).getTime() : Date.now(),
-    signalStrength: 100, // real MQTT connection → treat as full signal
+    signalStrength: 100,
     telemetry: {
-      temperature: (row.temperature_c as number) ?? undefined,
-      humidity:    (row.humidity_percent as number) ?? undefined,
-      pressure:    (row.pressure_hpa as number) ?? undefined,
-      salinity:    (row.salinity_psu as number) ?? undefined,
-      windSpeed:   windSpeedKmh,
-      battery:     (row.battery_percent as number) ?? undefined,
-      // ph & oxygen: not provided by ESP32 — keep whatever the store already has.
-    } as Buoy['telemetry'],
+      temperature: temp,
+      airTemperature: airTemp,
+      humidity: hum,
+      pressure: press,
+      accelX,
+      accelY,
+      accelZ,
+      gyroX,
+      gyroY,
+      gyroZ,
+      windSpeed: windSpeedKmh,
+      waveHeight,
+      salinity: sal,
+      iceConcentration: iceConc,
+      currentSpeed,
+      battery: batt,
+      mode,
+      sampling,
+      energyMode,
+      risk,
+      ph: 0,
+      oxygen: 0,
+    },
     history: { ...history },
   }
 }
@@ -89,6 +132,10 @@ class LiveTelemetryService {
       console.info('[LiveTelemetryService] Socket.IO connected to', API_URL)
     })
 
+    this.socket.on('connect_error', (err) => {
+      console.error('[LiveTelemetryService] Socket.IO connect error:', err.message)
+    })
+
     this.socket.on('disconnect', () => {
       console.warn('[LiveTelemetryService] Socket.IO disconnected — PS-01 going offline.')
       this._emitOffline()
@@ -96,6 +143,7 @@ class LiveTelemetryService {
     })
 
     this.socket.on('telemetry_update', (row: Record<string, unknown>) => {
+      console.log('[LiveTelemetryService] Received telemetry_update for', row.buoy_id)
       // Ignore telemetry from any buoy other than our mapped device.
       if (row.buoy_id !== DEVICE_BUOY_ID) return
 
@@ -115,10 +163,43 @@ class LiveTelemetryService {
   // ── Private helpers ──────────────────────────────────────────────────────
 
   private _emitOffline() {
+    history = {
+      temperature: [],
+      salinity: [],
+      windSpeed: [],
+      battery: [],
+      pressure: [],
+    }
+
     const offlinePatch: Partial<Buoy> & { id: string } = {
       id: LIVE_BUOY_ID,
       status: 'offline',
       signalStrength: 0,
+      telemetry: {
+        temperature: 0,
+        airTemperature: 0,
+        humidity: 0,
+        pressure: 0,
+        accelX: 0,
+        accelY: 0,
+        accelZ: 0,
+        gyroX: 0,
+        gyroY: 0,
+        gyroZ: 0,
+        windSpeed: 0,
+        waveHeight: 0,
+        salinity: 0,
+        iceConcentration: 0,
+        currentSpeed: 0,
+        battery: 0,
+        mode: 'OFFLINE',
+        sampling: 'OFFLINE',
+        energyMode: 'OFFLINE',
+        risk: 'NONE',
+        ph: 0,
+        oxygen: 0,
+      },
+      history: { ...history },
     }
     this.listeners.forEach((cb) => cb(offlinePatch))
   }

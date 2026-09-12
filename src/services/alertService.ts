@@ -4,31 +4,31 @@ type Listener = (alerts: AlertItem[]) => void
 
 const TEMPLATES: { match: (b: Buoy) => boolean; severity: AlertSeverity; title: string; message: (b: Buoy) => string }[] = [
   {
-    match: (b) => b.telemetry.windSpeed > 45,
+    match: (b) => b.status === 'online' && b.telemetry.windSpeed > 45,
     severity: 'high',
     title: 'HIGH WIND DETECTED',
     message: (b) => `Sustained wind speed of ${b.telemetry.windSpeed} km/h recorded at ${b.name}.`,
   },
   {
-    match: (b) => b.telemetry.battery < 20,
+    match: (b) => b.status === 'online' && b.telemetry.battery > 0 && b.telemetry.battery < 20,
     severity: 'critical',
     title: 'BATTERY BELOW 20%',
     message: (b) => `${b.name} battery at ${b.telemetry.battery.toFixed(0)}%. Solar recharge recommended.`,
   },
   {
-    match: (b) => b.telemetry.temperature > 1.5 || b.telemetry.temperature < -3.2,
+    match: (b) => b.status === 'online' && (b.telemetry.temperature > 1.5 || b.telemetry.temperature < -3.2),
     severity: 'medium',
     title: 'TEMPERATURE ANOMALY',
     message: (b) => `Water temperature reading of ${b.telemetry.temperature}\u00b0C deviates from seasonal baseline.`,
   },
   {
-    match: (b) => b.status === 'offline',
+    match: (b) => b.id === 'PS-01' && b.status === 'offline' && b.lastSync > 0,
     severity: 'high',
     title: 'SENSOR OFFLINE',
     message: (b) => `${b.name} has not reported telemetry since ${new Date(b.lastSync).toLocaleTimeString()}.`,
   },
   {
-    match: (b) => b.signalStrength < 35 && b.status !== 'offline',
+    match: (b) => b.status === 'online' && b.signalStrength < 35,
     severity: 'low',
     title: 'WEAK SIGNAL STRENGTH',
     message: (b) => `${b.name} signal strength degraded to ${b.signalStrength}%.`,

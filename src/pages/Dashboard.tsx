@@ -7,11 +7,13 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { Sparkline } from '@/components/ui/Sparkline'
 import { Badge } from '@/components/ui/primitives'
 import { statusColor, formatRelativeTime } from '@/lib/utils'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const buoys = useStore((s) => s.buoys)
   const initialized = useStore((s) => s.initialized)
+  const selectBuoy = useStore((s) => s.selectBuoy)
 
   const summary = useMemo(() => {
     const online = buoys.filter((b) => b.status !== 'offline')
@@ -64,7 +66,22 @@ export default function Dashboard() {
               {buoys.map((b) => {
                 const sc = statusColor(b.status)
                 return (
-                  <div key={b.id} className="flex items-center justify-between rounded-lg px-2 py-2.5 hover:bg-white/[0.03]">
+                  <div
+                    key={b.id}
+                    onClick={() => {
+                      selectBuoy(b.id)
+                      navigate(`/live?buoy=${b.id}`)
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        selectBuoy(b.id)
+                        navigate(`/live?buoy=${b.id}`)
+                      }
+                    }}
+                    className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-2.5 transition-colors hover:bg-white/[0.06] active:bg-white/[0.08]"
+                  >
                     <div className="flex items-center gap-3">
                       <span className={`h-2 w-2 rounded-full ${sc.dot}`} />
                       <div>
