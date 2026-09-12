@@ -3,7 +3,7 @@ import { Buoy, TelemetryPoint } from '@/types'
 
 type Listener = (partial: Partial<Buoy> & { id: string }) => void
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:4000'
+const API_URL = (import.meta?.env?.VITE_API_URL as string | undefined) || 'http://localhost:4000'
 
 /** The frontend buoy ID that corresponds to the real ESP32 device. */
 const LIVE_BUOY_ID = 'PS-01'
@@ -15,66 +15,86 @@ const DEVICE_BUOY_ID = 'POLAR-001'
  * How long (ms) to wait after the last telemetry update before declaring
  * PS-01 offline.
  */
-export const TELEMETRY_TIMEOUT_MS = 10_000
+export const TELEMETRY_TIMEOUT_MS = 30_000
 
 /** Rolling history window length (number of points kept per metric). */
 const HISTORY_MAX_POINTS = 48
 
-// In-memory sparkline history for PS-01 (accumulates while the page is open and simulation is online).
+// In-memory sparkline history for PS-01 (accumulates across telemetry packets).
+// All 10 metrics tracked so every Live Monitoring card gets a sparkline.
 let history: Buoy['history'] = {
   temperature: [],
   salinity: [],
   windSpeed: [],
   battery: [],
   pressure: [],
+  airTemperature: [],
+  humidity: [],
+  waveHeight: [],
+  iceConcentration: [],
+  currentSpeed: [],
 }
 
-function pushPoint(arr: TelemetryPoint[], value: number | undefined): TelemetryPoint[] {
-  if (value == null || isNaN(value)) return arr
-  const next = [...arr, { timestamp: Date.now(), value }]
+function num(val: unknown, fallback = 0): number {
+  if (typeof val === 'number') return isNaN(val) ? fallback : val
+  if (typeof val === 'string') {
+    const parsed = parseFloat(val)
+    return isNaN(parsed) ? fallback : parsed
+  }
+  return fallback
+}
+
+function pushPoint(arr: TelemetryPoint[] | undefined, value: number | undefined, timestamp?: number): TelemetryPoint[] {
+  if (value == null || isNaN(value)) return arr ?? []
+  const pointTs = typeof timestamp === 'number' && timestamp > 0 ? timestamp : Date.now()
+  const next = [...(arr ?? []), { timestamp: pointTs, value }]
   return next.slice(-HISTORY_MAX_POINTS)
 }
 
 function mapRowToBuoyPatch(row: Record<string, unknown>): Partial<Buoy> & { id: string } {
-  const windSpeedMs = typeof row.wind_speed_ms === 'number' ? row.wind_speed_ms : 0
+  const timestamp = row.created_at ? new Date(row.created_at as string).getTime() : Date.now()
+
+  const windSpeedMs = num(row.wind_speed_ms)
   const windSpeedKmh = windSpeedMs * 3.6
 
-  const temp = typeof row.temperature_c === 'number' ? row.temperature_c : 0
-  const airTemp = typeof row.air_temperature_c === 'number' ? row.air_temperature_c : 0
-  const hum = typeof row.humidity_percent === 'number' ? row.humidity_percent : 0
-  const press = typeof row.pressure_hpa === 'number' ? row.pressure_hpa : 0
-  const sal = typeof row.salinity_psu === 'number' ? row.salinity_psu : 0
-  const waveHeight = typeof row.wave_height_m === 'number' ? row.wave_height_m : 0
-  const iceConc =
-    typeof row.ice_concentration_percent === 'number'
-      ? row.ice_concentration_percent
-      : typeof row.ice_concentration_pct === 'number'
-        ? row.ice_concentration_pct
-        : 0
-  const currentSpeed = typeof row.current_speed_ms === 'number' ? row.current_speed_ms : 0
-  const batt = typeof row.battery_percent === 'number' ? row.battery_percent : 0
+  const temp = num(row.temperature_c)
+  const airTemp = num(row.air_temperature_c)
+  const hum = num(row.humidity_percent)
+  const press = num(row.pressure_hpa)
+  const sal = num(row.salinity_psu)
+  const waveHeight = num(row.wave_height_m)
+  const iceConc = num(row.ice_concentration_percent ?? row.ice_concentration_pct)
+  const currentSpeed = num(row.current_speed_ms)
+  const batt = num(row.battery_percent)
 
   const extra = (row.extra && typeof row.extra === 'object' ? row.extra : {}) as Record<string, any>
 
-  const accelX = typeof row.accel_x_g === 'number' ? row.accel_x_g : (extra.accel_x_g ?? extra.accel?.x ?? 0)
-  const accelY = typeof row.accel_y_g === 'number' ? row.accel_y_g : (extra.accel_y_g ?? extra.accel?.y ?? 0)
-  const accelZ = typeof row.accel_z_g === 'number' ? row.accel_z_g : (extra.accel_z_g ?? extra.accel?.z ?? 0)
+  const accelX = num(row.accel_x_g ?? extra.accel_x_g ?? extra.accel?.x)
+  const accelY = num(row.accel_y_g ?? extra.accel_y_g ?? extra.accel?.y)
+  const accelZ = num(row.accel_z_g ?? extra.accel_z_g ?? extra.accel?.z)
 
-  const gyroX = typeof row.gyro_x_dps === 'number' ? row.gyro_x_dps : (extra.gyro_x_dps ?? extra.gyro?.x ?? 0)
-  const gyroY = typeof row.gyro_y_dps === 'number' ? row.gyro_y_dps : (extra.gyro_y_dps ?? extra.gyro?.y ?? 0)
-  const gyroZ = typeof row.gyro_z_dps === 'number' ? row.gyro_z_dps : (extra.gyro_z_dps ?? extra.gyro?.z ?? 0)
+  const gyroX = num(row.gyro_x_dps ?? extra.gyro_x_dps ?? extra.gyro?.x)
+  const gyroY = num(row.gyro_y_dps ?? extra.gyro_y_dps ?? extra.gyro?.y)
+  const gyroZ = num(row.gyro_z_dps ?? extra.gyro_z_dps ?? extra.gyro?.z)
 
   const mode = (row.mode as string) || extra.mode || 'NORMAL'
   const sampling = (row.sampling as string) || extra.sampling || 'NORMAL'
   const energyMode = (row.energy_mode as string) || extra.energy_mode || 'POWER_SAVING'
   const risk = (row.risk as string) || extra.risk || 'LOW'
 
-  // Append real readings to in-memory sparkline history.
-  history.temperature = pushPoint(history.temperature, temp)
-  history.salinity    = pushPoint(history.salinity,    sal)
-  history.windSpeed   = pushPoint(history.windSpeed,   windSpeedKmh)
-  history.battery     = pushPoint(history.battery,     batt)
-  history.pressure    = pushPoint(history.pressure,    press)
+  // Append real readings to in-memory sparkline history — all 10 metrics.
+  history.temperature      = pushPoint(history.temperature,      temp,         timestamp)
+  history.airTemperature  = pushPoint(history.airTemperature,  airTemp,      timestamp)
+  history.humidity        = pushPoint(history.humidity,        hum,          timestamp)
+  history.pressure        = pushPoint(history.pressure,        press,        timestamp)
+  history.windSpeed       = pushPoint(history.windSpeed,       windSpeedKmh, timestamp)
+  history.waveHeight      = pushPoint(history.waveHeight,      waveHeight,   timestamp)
+  history.salinity        = pushPoint(history.salinity,        sal,          timestamp)
+  history.iceConcentration = pushPoint(history.iceConcentration, iceConc,     timestamp)
+  history.currentSpeed    = pushPoint(history.currentSpeed,    currentSpeed, timestamp)
+  history.battery         = pushPoint(history.battery,         batt,         timestamp)
+
+  console.info(`[LiveTelemetryService] PS-01 telemetry mapped. History length: ${history.temperature.length}`)
 
   return {
     id: LIVE_BUOY_ID,
@@ -137,9 +157,11 @@ class LiveTelemetryService {
     })
 
     this.socket.on('disconnect', () => {
-      console.warn('[LiveTelemetryService] Socket.IO disconnected — PS-01 going offline.')
-      this._emitOffline()
-      this._clearStaleTimer()
+      // Do NOT emit offline here. A Socket.IO disconnect can be momentary
+      // (e.g. server restart via node --watch). The stale timer is the sole
+      // mechanism for declaring PS-01 offline — it will fire after
+      // TELEMETRY_TIMEOUT_MS if no real telemetry resumes.
+      console.warn('[LiveTelemetryService] Socket.IO disconnected — waiting for reconnect or stale timeout.')
     })
 
     this.socket.on('telemetry_update', (row: Record<string, unknown>) => {
@@ -163,13 +185,10 @@ class LiveTelemetryService {
   // ── Private helpers ──────────────────────────────────────────────────────
 
   private _emitOffline() {
-    history = {
-      temperature: [],
-      salinity: [],
-      windSpeed: [],
-      battery: [],
-      pressure: [],
-    }
+    // Do NOT clear module-level history here.
+    // Historical graph data should remain visible while PS-01 is offline
+    // so the user can still see the previous telemetry session.
+    // When telemetry resumes, new points will append to the existing history.
 
     const offlinePatch: Partial<Buoy> & { id: string } = {
       id: LIVE_BUOY_ID,
@@ -199,7 +218,8 @@ class LiveTelemetryService {
         ph: 0,
         oxygen: 0,
       },
-      history: { ...history },
+      // history intentionally omitted — useStore will keep b.history unchanged
+      // (patch.history is undefined → `patch.history ? {...} : b.history` falls through)
     }
     this.listeners.forEach((cb) => cb(offlinePatch))
   }

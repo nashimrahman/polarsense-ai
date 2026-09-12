@@ -55,6 +55,12 @@ export interface Buoy {
     windSpeed: TelemetryPoint[]
     battery: TelemetryPoint[]
     pressure: TelemetryPoint[]
+    // Extended metrics — optional so existing fleet init/mockData remains compatible
+    airTemperature?: TelemetryPoint[]
+    humidity?: TelemetryPoint[]
+    waveHeight?: TelemetryPoint[]
+    iceConcentration?: TelemetryPoint[]
+    currentSpeed?: TelemetryPoint[]
   }
 }
 

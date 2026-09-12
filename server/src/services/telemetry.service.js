@@ -4,6 +4,10 @@ export async function insertTelemetry(d) {
   const extra = {
     accel: { x: d.accel_x_g, y: d.accel_y_g, z: d.accel_z_g },
     gyro: { x: d.gyro_x_dps, y: d.gyro_y_dps, z: d.gyro_z_dps },
+    // Autonomous system fields — no DB columns, stored here so RETURNING * carries them through Socket.IO
+    sampling:    d.sampling    ?? null,
+    energy_mode: d.energy_mode ?? null,
+    risk:        d.risk        ?? null,
   }
   const { rows } = await pool.query(
     `INSERT INTO telemetry

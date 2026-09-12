@@ -22,3 +22,13 @@ const mqttClient = createMqttClient()
 attachTelemetryHandler(mqttClient, io)
 
 httpServer.listen(env.port, () => logger.info(`Server listening on :${env.port}`))
+
+// Graceful shutdown — node --watch sends SIGTERM on file change.
+// Close the HTTP server first so port 4000 is released before the process exits,
+// preventing EADDRINUSE on the next restart.
+process.on('SIGTERM', () => {
+  httpServer.close(() => {
+    mqttClient.end(true)
+    process.exit(0)
+  })
+})

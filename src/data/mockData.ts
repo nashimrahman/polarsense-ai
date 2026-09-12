@@ -69,10 +69,15 @@ export function generateInitialFleet(): Buoy[] {
       },
       history: {
         temperature: [],
-        salinity: [],
-        windSpeed: [],
-        battery: [],
+        airTemperature: [],
+        humidity: [],
         pressure: [],
+        windSpeed: [],
+        waveHeight: [],
+        salinity: [],
+        iceConcentration: [],
+        currentSpeed: [],
+        battery: [],
       },
     }
   })

@@ -93,12 +93,12 @@ export default function LiveMonitoring() {
         {METRICS.map((m) => {
           const rawValue = active.telemetry[m.key as keyof typeof active.telemetry]
           const value = typeof rawValue === 'number' ? rawValue : 0
-          const history = m.key in active.history ? active.history[m.key as keyof typeof active.history] : undefined
+          const history = (active.history?.[m.key as keyof typeof active.history] as any) ?? []
           const prev = history && history.length > 1 ? history[history.length - 2].value : value
           const up = value >= prev
 
           return (
-            <Card key={m.key} className="p-5">
+            <Card key={m.key} className="p-5 min-w-0">
               <div className="flex items-center justify-between">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${m.color}1A`, color: m.color }}>
                   <m.icon size={16} />
@@ -113,11 +113,9 @@ export default function LiveMonitoring() {
                 {m.unit}
               </p>
               <p className="text-xs text-text-secondary">{m.label}</p>
-              {history && (
-                <div className="mt-2 -mx-1">
-                  <Sparkline data={history} color={m.color} height={40} />
-                </div>
-              )}
+              <div className="mt-2 -mx-1 h-10 w-full min-w-0">
+                <Sparkline data={history} color={m.color} height={40} />
+              </div>
             </Card>
           )
         })}

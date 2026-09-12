@@ -4,6 +4,12 @@ import { logger } from '../utils/logger.js'
 
 export function attachTelemetryHandler(mqttClient, io) {
   mqttClient.on('message', async (topic, payload) => {
+    
+    console.log('\n===== RAW MQTT MESSAGE =====');
+    console.log('Topic:', topic);
+    console.log('Payload:', payload.toString());
+    console.log('============================\n');
+
     const { valid, data, error } = validateTelemetryPayload(payload)
     if (!valid) {
       logger.warn('Rejected telemetry payload:', error, 'topic:', topic)
