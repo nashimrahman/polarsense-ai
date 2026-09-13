@@ -14,8 +14,18 @@ const DEVICE_BUOY_ID = 'POLAR-001'
 /**
  * How long (ms) to wait after the last telemetry update before declaring
  * PS-01 offline.
+ *
+ * Tolerance rationale:
+ *   NORMAL mode:  one telemetry every ~10 s
+ *   STORM mode:   one telemetry every  ~3 s
+ *   MQTT reconnect on Velxio TLS can take ~10-20 s
+ *
+ * 45 s = NORMAL interval (10 s) × 3 + headroom (15 s) for reconnect.
+ * This prevents PS-01 from flashing OFFLINE during a genuine but brief
+ * MQTT reconnect, while still going OFFLINE quickly if the device is truly
+ * unreachable.
  */
-export const TELEMETRY_TIMEOUT_MS = 30_000
+export const TELEMETRY_TIMEOUT_MS = 45_000
 
 /** Rolling history window length (number of points kept per metric). */
 const HISTORY_MAX_POINTS = 48
